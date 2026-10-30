@@ -12,7 +12,10 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import inspect, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from templates import ROLES
+if __package__:
+    from .templates import ROLES
+else:
+    from templates import ROLES
 
 db = SQLAlchemy()
 PORTFOLIO_STYLES = {
@@ -64,17 +67,28 @@ class PortfolioGeneration(db.Model):
 
 def create_app():
     app = Flask(__name__)
+    is_production = os.environ.get("APP_ENV", "development").lower() == "production"
     secret_key = os.environ.get("SECRET_KEY")
-    if not secret_key and os.environ.get("APP_ENV", "development").lower() == "production":
+    if not secret_key and is_production:
         raise RuntimeError("SECRET_KEY must be configured when APP_ENV=production.")
+    database_url = os.environ.get("DATABASE_URL")
+    if is_production and not database_url:
+        raise RuntimeError("DATABASE_URL must point to a persistent database when APP_ENV=production.")
+    if is_production and database_url.lower().startswith("sqlite:"):
+        raise RuntimeError("SQLite is not persistent on Vercel. Configure DATABASE_URL with PostgreSQL.")
+    if database_url and database_url.startswith("postgres://"):
+        database_url = "postgresql+psycopg://" + database_url.removeprefix("postgres://")
+    elif database_url and database_url.startswith("postgresql://"):
+        database_url = "postgresql+psycopg://" + database_url.removeprefix("postgresql://")
+
     app.config["SECRET_KEY"] = secret_key or "local-development-only-change-this-secret-before-deployment"
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-    app.config["SESSION_COOKIE_SECURE"] = os.environ.get("COOKIE_SECURE", "false").lower() == "true"
+    app.config["SESSION_COOKIE_SECURE"] = os.environ.get(
+        "COOKIE_SECURE", "true" if is_production else "false"
+    ).lower() == "true"
     app.config["PERMANENT_SESSION_LIFETIME"] = 60 * 60 * 24 * 14
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
-        "DATABASE_URL", "sqlite:///portfolios.db"
-    )
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url or "sqlite:///portfolios.db"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
     CORS(app, resources={
