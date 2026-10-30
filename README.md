@@ -43,14 +43,17 @@ This repository contains two deployable applications configured as **Vercel Serv
 
 1. Import this repository into Vercel and set **Root Directory** to the repository root (`.`), not `frontend` or `backend`. The root is the Services project configuration, not a third application.
 2. Leave build settings to `vercel.json` and the framework detections: Vercel builds `frontend/` as Vite and `backend/` as Flask independently.
-3. Add a persistent PostgreSQL database and configure these Vercel environment variables for **Production**:
-   - `APP_ENV=production`
+3. This app uses Neon Postgres for its SQLAlchemy database and keeps its existing Flask authentication. Run `neon deploy` from the repository root to apply `neon.ts` and pull the branch credentials into the ignored `.env.local` file. Use the pooled `DATABASE_URL` for application traffic; do not use `DATABASE_URL_UNPOOLED` for the deployed app.
+4. Configure these Vercel environment variables for **Production**:
+   - `APP_ENV=production` (Vercel is also detected automatically through its `VERCEL=1` environment variable.)
    - `SECRET_KEY`: a long, unique random value; generate it outside the frontend and do not commit it.
    - `COOKIE_SECURE=true`
-   - `DATABASE_URL`: the database connection string in `postgresql://` or `postgresql+psycopg://` form.
+   - `DATABASE_URL`: the pooled Neon connection string from `.env.local`. Copy it securely into Vercel; never commit or share it.
    For Preview deployments, use a separate persistent database and a distinct secret. Configure local Development values only if using `vercel dev`.
-4. Redeploy after setting the variables.
+5. Redeploy after setting the variables.
 
 Vercel's function filesystem is not a persistent database, so production startup rejects a missing or SQLite `DATABASE_URL`. The existing local SQLite database is for development and is not automatically copied into the hosted PostgreSQL database. If you need its records in production, migrate them separately before switching users to the deployed app.
 
 The backend service is publicly reachable only through `/api/*`; the frontend service handles all other public paths. The backend has no separate public hostname or internal binding. The Vite development proxy remains local-only and targets `http://127.0.0.1:5000`.
+
+The Neon branch configuration is in `neon.ts`. This app currently provisions Postgres only: login remains in the existing Flask API, portfolio files are generated in the browser, and the app does not currently use AI Gateway, Object Storage, Neon Functions, or Realtime.

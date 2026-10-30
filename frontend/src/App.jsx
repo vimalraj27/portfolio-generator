@@ -4,6 +4,23 @@ import { Check, Download, ExternalLink, Plus, Sparkles, Trash2 } from "lucide-re
 import { buildPortfolioFiles, buildPreviewDocument, createPortfolioFileName, portfolioStyles } from "./portfolioTemplates.js"
 
 const API_URL = "/api"
+
+async function parseApiResponse(response) {
+  const body = await response.text()
+  let result
+
+  try {
+    result = body ? JSON.parse(body) : null
+  } catch {
+    const detail = body.trim().replace(/\s+/g, " ").slice(0, 240)
+    throw new Error(
+      `The API returned an unexpected response (HTTP ${response.status})${detail ? `: ${detail}` : "."}`,
+    )
+  }
+
+  return result
+}
+
 const initialForm = {
   name: "",
   role: "software-developer",
@@ -66,9 +83,10 @@ function App() {
 
   useEffect(() => {
     fetch(`${API_URL}/roles`)
-      .then((response) => {
-        if (!response.ok) throw new Error("Could not load portfolio templates.")
-        return response.json()
+      .then(async (response) => {
+        const result = await parseApiResponse(response)
+        if (!response.ok) throw new Error(result?.error || "Could not load portfolio templates.")
+        return result
       })
       .then(setRoles)
       .catch((requestError) => setError(requestError.message))
@@ -76,8 +94,8 @@ function App() {
 
     fetch(`${API_URL}/auth/me`, { credentials: "include" })
       .then(async (response) => {
+        const result = await parseApiResponse(response)
         if (response.status === 401) return null
-        const result = await response.json()
         if (!response.ok) throw new Error(result.error || "Could not check your account.")
         return result.user
       })
@@ -159,7 +177,7 @@ function App() {
     const headers = new Headers(options.headers || {})
     if (options.method && options.method !== "GET") {
       const csrfResponse = await fetch(`${API_URL}/auth/csrf`, { credentials: "include" })
-      const csrfResult = await csrfResponse.json()
+      const csrfResult = await parseApiResponse(csrfResponse)
       if (!csrfResponse.ok) throw new Error(csrfResult.error || "Could not verify your session.")
       headers.set("X-CSRF-Token", csrfResult.csrfToken)
     }
@@ -169,7 +187,7 @@ function App() {
       headers,
       credentials: "include",
     })
-    const result = await response.json()
+    const result = await parseApiResponse(response)
     if (!response.ok) throw new Error(result.error || "The request could not be completed.")
     return result
   }

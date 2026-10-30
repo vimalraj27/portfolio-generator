@@ -67,7 +67,10 @@ class PortfolioGeneration(db.Model):
 
 def create_app():
     app = Flask(__name__)
-    is_production = os.environ.get("APP_ENV", "development").lower() == "production"
+    is_production = (
+        os.environ.get("APP_ENV", "development").lower() == "production"
+        or os.environ.get("VERCEL") == "1"
+    )
     secret_key = os.environ.get("SECRET_KEY")
     if not secret_key and is_production:
         raise RuntimeError("SECRET_KEY must be configured when APP_ENV=production.")
