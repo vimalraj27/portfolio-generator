@@ -2,7 +2,6 @@
 .env.*
 !.env.example
 .vercel/
-/public/
 /frontend/node_modules/
 /frontend/dist/
 /backend/.venv/

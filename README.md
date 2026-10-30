@@ -39,17 +39,18 @@ New users provide their first and last name when creating an account; returning 
 
 ## Deploy to Vercel
 
-This repository is configured as **one Vercel project** rooted at the repository root. Vercel runs the Flask application as a Python Function and serves the Vite build from the root `public/` directory. The frontend calls `/api/...` on the same origin, so no frontend API URL or cross-origin service binding is needed.
+This repository contains two deployable applications configured as **Vercel Services** in one Vercel project: the Vite frontend and Flask API. The frontend calls `/api/...` on the shared origin; Vercel routes those requests directly to Flask and sends all other paths to Vite. No inter-service binding is needed because the browser makes same-origin API requests.
 
-1. Import this repository into Vercel and set **Root Directory** to the repository root (`.`), not `frontend` or `backend`.
-2. Leave the build and output settings to `vercel.json`: it installs the frontend lockfile, builds Vite into `public/`, and declares that directory as the static output.
-3. Add a persistent PostgreSQL database and configure these Vercel environment variables for **Production**, **Preview**, and **Development** as appropriate:
+1. Import this repository into Vercel and set **Root Directory** to the repository root (`.`), not `frontend` or `backend`. The root is the Services project configuration, not a third application.
+2. Leave build settings to `vercel.json` and the framework detections: Vercel builds `frontend/` as Vite and `backend/` as Flask independently.
+3. Add a persistent PostgreSQL database and configure these Vercel environment variables for **Production**:
    - `APP_ENV=production`
    - `SECRET_KEY`: a long, unique random value; generate it outside the frontend and do not commit it.
    - `COOKIE_SECURE=true`
    - `DATABASE_URL`: the database connection string in `postgresql://` or `postgresql+psycopg://` form.
+   For Preview deployments, use a separate persistent database and a distinct secret. Configure local Development values only if using `vercel dev`.
 4. Redeploy after setting the variables.
 
 Vercel's function filesystem is not a persistent database, so production startup rejects a missing or SQLite `DATABASE_URL`. The existing local SQLite database is for development and is not automatically copied into the hosted PostgreSQL database. If you need its records in production, migrate them separately before switching users to the deployed app.
 
-The root `app.py` exposes the existing Flask app to Vercel without moving the backend source. `requirements.txt` makes the backend dependencies available to the Python runtime; `frontend/vite.config.js` keeps the local `/api` development proxy and writes production assets to `public/`. There is no separate backend service or public backend URL in this architecture.
+The backend service is publicly reachable only through `/api/*`; the frontend service handles all other public paths. The backend has no separate public hostname or internal binding. The Vite development proxy remains local-only and targets `http://127.0.0.1:5000`.
